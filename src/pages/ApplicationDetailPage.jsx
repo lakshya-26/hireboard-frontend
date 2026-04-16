@@ -5,6 +5,8 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import { api, getApiErrorMessage } from '../lib/api';
+import { celebrateOffer } from '../lib/offerConfetti';
+import { requestDueRemindersRefresh } from '../lib/reminderEvents';
 
 const STATUSES = [
   'Saved',
@@ -72,6 +74,20 @@ function contactsArrayForPatch(contacts) {
   return (contacts || []).map(contactToPayload).filter(Boolean);
 }
 
+function formatRemindAt(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function isReminderOverdue(reminder) {
+  if (reminder.sent || reminder.status === 'done') return false;
+  return new Date(reminder.remindAt).getTime() < Date.now();
+}
+
 export default function ApplicationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -92,6 +108,13 @@ export default function ApplicationDetailPage() {
   });
   const [addingContact, setAddingContact] = useState(false);
 
+  const [reminders, setReminders] = useState([]);
+  const [remindersLoading, setRemindersLoading] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [remindAtLocal, setRemindAtLocal] = useState('');
+  const [addingReminder, setAddingReminder] = useState(false);
+  const [completingReminderId, setCompletingReminderId] = useState(null);
+
   const load = useCallback(async () => {
     if (!id) return;
     setError('');
@@ -111,6 +134,24 @@ export default function ApplicationDetailPage() {
     void load();
   }, [load]);
 
+  const loadReminders = useCallback(async () => {
+    if (!id) return;
+    setRemindersLoading(true);
+    try {
+      const res = await api.get('/reminders', { params: { applicationId: id } });
+      setReminders(res.data?.data?.reminders ?? []);
+    } catch {
+      setReminders([]);
+    } finally {
+      setRemindersLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!application?.id) return;
+    void loadReminders();
+  }, [application?.id, loadReminders]);
+
   const sortedNotes = useMemo(() => {
     const notes = application?.notes;
     if (!Array.isArray(notes)) return [];
@@ -124,12 +165,17 @@ export default function ApplicationDetailPage() {
   const patchField = useCallback(
     async (payload, fieldLabel) => {
       if (!id) return;
+      const previousStatus = application?.status;
       setActionError('');
       setSavingField(fieldLabel);
       setApplication((prev) => (prev ? { ...prev, ...payload } : prev));
       try {
         const res = await api.patch(`/applications/${id}`, payload);
-        setApplication(res.data?.data ?? null);
+        const updated = res.data?.data ?? null;
+        setApplication(updated);
+        if (updated?.status === 'Offer' && previousStatus !== 'Offer') {
+          celebrateOffer();
+        }
       } catch (err) {
         setActionError(getApiErrorMessage(err));
         await load();
@@ -137,7 +183,7 @@ export default function ApplicationDetailPage() {
         setSavingField(null);
       }
     },
-    [id, load],
+    [id, load, application?.status],
   );
 
   async function handleAddNote(e) {
@@ -186,6 +232,56 @@ export default function ApplicationDetailPage() {
       setActionError(getApiErrorMessage(err));
     } finally {
       setAddingContact(false);
+    }
+  }
+
+  async function handleAddReminder(e) {
+    e.preventDefault();
+    if (!id || !application) return;
+    const message = reminderMessage.trim();
+    if (!message) {
+      setActionError('Reminder message is required.');
+      return;
+    }
+    if (!remindAtLocal) {
+      setActionError('Pick a date and time for the reminder.');
+      return;
+    }
+    const remindAt = new Date(remindAtLocal);
+    if (Number.isNaN(remindAt.getTime())) {
+      setActionError('Invalid reminder date.');
+      return;
+    }
+    setActionError('');
+    setAddingReminder(true);
+    try {
+      await api.post('/reminders', {
+        applicationId: id,
+        message,
+        remindAt: remindAt.toISOString(),
+      });
+      setReminderMessage('');
+      setRemindAtLocal('');
+      await loadReminders();
+      requestDueRemindersRefresh();
+    } catch (err) {
+      setActionError(getApiErrorMessage(err));
+    } finally {
+      setAddingReminder(false);
+    }
+  }
+
+  async function handleCompleteReminder(reminderId) {
+    setActionError('');
+    setCompletingReminderId(reminderId);
+    try {
+      await api.patch(`/reminders/${reminderId}`);
+      await loadReminders();
+      requestDueRemindersRefresh();
+    } catch (err) {
+      setActionError(getApiErrorMessage(err));
+    } finally {
+      setCompletingReminderId(null);
     }
   }
 
@@ -247,105 +343,184 @@ export default function ApplicationDetailPage() {
       ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
-        <Card className="p-6 transition-shadow duration-200 lg:p-8">
-          <p className="text-xs font-semibold uppercase tracking-wide hb-muted">Company</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--color-text-primary)] lg:text-3xl">
-            {application.companyName}
-          </h1>
+        <div className="space-y-6">
+          <Card className="p-6 transition-shadow duration-200 lg:p-8">
+            <p className="text-xs font-semibold uppercase tracking-wide hb-muted">Company</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--color-text-primary)] lg:text-3xl">
+              {application.companyName}
+            </h1>
 
-          <div className="mt-6 space-y-5">
-            <div>
-              <label className="hb-label" htmlFor="detail-role">
-                Role
-              </label>
-              <input
-                id="detail-role"
-                type="text"
-                defaultValue={application.role}
-                key={`role-${application.id}-${application.role}`}
-                className={selectClass}
-                onBlur={(e) => {
-                  const next = e.target.value.trim();
-                  if (next && next !== application.role) void patchField({ role: next }, 'role');
-                }}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-[140px] flex-1">
-                <label className="hb-label" htmlFor="detail-status">
-                  Status
-                </label>
-                <select
-                  id="detail-status"
-                  className={selectClass}
-                  value={application.status}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (next !== application.status) void patchField({ status: next }, 'status');
-                  }}
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="min-w-[120px] flex-1">
-                <label className="hb-label" htmlFor="detail-priority">
-                  Priority
-                </label>
-                <select
-                  id="detail-priority"
-                  className={selectClass}
-                  value={application.priority || 'Medium'}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (next !== application.priority) void patchField({ priority: next }, 'priority');
-                  }}
-                >
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="hb-label" htmlFor="detail-location">
-                Location
-              </label>
-              <input
-                id="detail-location"
-                type="text"
-                defaultValue={application.location || ''}
-                key={`loc-${application.id}-${application.location ?? ''}`}
-                className={selectClass}
-                placeholder="City, region, or remote"
-                onBlur={(e) => {
-                  const next = e.target.value.trim();
-                  const prev = (application.location || '').trim();
-                  if (next !== prev) void patchField({ location: next || undefined }, 'location');
-                }}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-3 border-t border-[var(--color-border)] pt-5">
+            <div className="mt-6 space-y-5">
               <div>
-                <p className="text-xs font-semibold hb-muted">Applied</p>
-                <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)]">
-                  {formatAppliedDate(application.appliedDate)}
-                </p>
+                <label className="hb-label" htmlFor="detail-role">
+                  Role
+                </label>
+                <input
+                  id="detail-role"
+                  type="text"
+                  defaultValue={application.role}
+                  key={`role-${application.id}-${application.role}`}
+                  className={selectClass}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next && next !== application.role) void patchField({ role: next }, 'role');
+                  }}
+                />
               </div>
-              <div className="flex items-end">
-                <Badge>{application.status}</Badge>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-[140px] flex-1">
+                  <label className="hb-label" htmlFor="detail-status">
+                    Status
+                  </label>
+                  <select
+                    id="detail-status"
+                    className={selectClass}
+                    value={application.status}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      if (next !== application.status) void patchField({ status: next }, 'status');
+                    }}
+                  >
+                    {STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-[120px] flex-1">
+                  <label className="hb-label" htmlFor="detail-priority">
+                    Priority
+                  </label>
+                  <select
+                    id="detail-priority"
+                    className={selectClass}
+                    value={application.priority || 'Medium'}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      if (next !== application.priority) void patchField({ priority: next }, 'priority');
+                    }}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="hb-label" htmlFor="detail-location">
+                  Location
+                </label>
+                <input
+                  id="detail-location"
+                  type="text"
+                  defaultValue={application.location || ''}
+                  key={`loc-${application.id}-${application.location ?? ''}`}
+                  className={selectClass}
+                  placeholder="City, region, or remote"
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    const prev = (application.location || '').trim();
+                    if (next !== prev) void patchField({ location: next || undefined }, 'location');
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3 border-t border-[var(--color-border)] pt-5">
+                <div>
+                  <p className="text-xs font-semibold hb-muted">Applied</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)]">
+                    {formatAppliedDate(application.appliedDate)}
+                  </p>
+                </div>
+                <div className="flex items-end">
+                  <Badge>{application.status}</Badge>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          <Card className="p-6 lg:p-8">
+            <h2 className="text-base font-bold text-[var(--color-text-primary)]">Reminders</h2>
+            <p className="mt-1 text-xs hb-muted">Nudges for follow-ups. Overdue items are highlighted.</p>
+
+            {remindersLoading ? (
+              <p className="mt-4 text-sm hb-muted">Loading reminders…</p>
+            ) : reminders.length === 0 ? (
+              <p className="mt-4 text-sm hb-muted">No reminders yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {reminders.map((r) => {
+                  const overdue = isReminderOverdue(r);
+                  const done = r.sent || r.status === 'done';
+                  return (
+                    <li
+                      key={r.id}
+                      className={`rounded-xl border px-4 py-3 ${
+                        done
+                          ? 'border-[var(--color-border)] bg-gray-50/60 opacity-90'
+                          : overdue
+                            ? 'border-amber-200 bg-amber-50/90'
+                            : 'border-[var(--color-border)] bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[var(--color-text-primary)]">{r.message}</p>
+                          <p className="mt-1 text-xs hb-muted">{formatRemindAt(r.remindAt)}</p>
+                          <p className="mt-2 text-xs font-semibold uppercase tracking-wide hb-muted">
+                            {done ? 'Done' : overdue ? 'Overdue' : 'Pending'}
+                          </p>
+                        </div>
+                        {!done ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="w-auto shrink-0 px-3 py-2 text-xs"
+                            disabled={completingReminderId === r.id}
+                            onClick={() => void handleCompleteReminder(r.id)}
+                          >
+                            {completingReminderId === r.id ? 'Saving…' : 'Mark done'}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <form onSubmit={handleAddReminder} className="mt-6 space-y-4 border-t border-[var(--color-border)] pt-6">
+              <Input
+                id="reminder-message"
+                label="Message"
+                placeholder="e.g. Email recruiter for update"
+                value={reminderMessage}
+                onChange={(e) => setReminderMessage(e.target.value)}
+                autoComplete="off"
+              />
+              <div>
+                <label className="hb-label" htmlFor="reminder-at">
+                  Remind at
+                </label>
+                <input
+                  id="reminder-at"
+                  type="datetime-local"
+                  className={selectClass}
+                  value={remindAtLocal}
+                  onChange={(e) => setRemindAtLocal(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-auto px-5" disabled={addingReminder}>
+                {addingReminder ? 'Adding…' : 'Add reminder'}
+              </Button>
+            </form>
+          </Card>
+        </div>
 
         <div className="space-y-6">
           <Card className="p-6 lg:p-8">
