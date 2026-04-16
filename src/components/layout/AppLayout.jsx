@@ -10,7 +10,7 @@ export default function AppLayout() {
     <div className="min-h-screen bg-[var(--color-bg)]">
       <Navbar onLogout={logout} />
       <Container className="py-8">
-        <div className="mb-6">
+        <div className="hb-page-intro mb-7 hb-fade-in">
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
             Welcome, {user?.name || 'there'}
           </h1>

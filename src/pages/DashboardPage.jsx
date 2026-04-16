@@ -9,6 +9,7 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { api, getApiErrorMessage } from '../lib/api';
+import { celebrateOffer } from '../lib/offerConfetti';
 
 const STATUSES = [
   'Saved',
@@ -79,10 +80,10 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`hb-card rounded-xl border border-[var(--color-border)] bg-white p-3.5 transition-all ${
+          className={`hb-card hb-card--interactive mb-0 rounded-[var(--radius-lg)] p-3.5 transition-shadow ${
             snapshot.isDragging
               ? 'cursor-grabbing shadow-lg ring-2 ring-indigo-200'
-              : 'cursor-grab hover:-translate-y-0.5 hover:shadow-md'
+              : 'cursor-grab'
           }`}
         >
           <div className="flex gap-2">
@@ -133,7 +134,7 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
 
 function StatusColumn({ status, applications, onEditApplication, onDeleteApplication }) {
   return (
-    <Card className="flex h-full min-h-[540px] w-[300px] flex-shrink-0 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5">
+    <Card className="hb-panel flex h-full min-h-[540px] w-[300px] flex-shrink-0 flex-col p-3.5">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{status}</h3>
         <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
@@ -173,10 +174,27 @@ function StatusColumn({ status, applications, onEditApplication, onDeleteApplica
   );
 }
 
-function ApplicationsListTable({ applications, onEditRow, onDeleteRow }) {
+function ApplicationsListTable({ applications, onEditRow, onDeleteRow, hasActiveFilters, onAddApplication }) {
   if (applications.length === 0) {
+    if (!hasActiveFilters) {
+      return (
+        <Card className="p-12 text-center hb-fade-in">
+          <p className="text-base font-semibold text-[var(--color-text-primary)]">No applications yet</p>
+          <p className="mt-2 text-sm hb-muted">
+            Add a role to see it here and on the Kanban board.
+          </p>
+          {onAddApplication ? (
+            <div className="mt-6 flex justify-center">
+              <Button type="button" className="w-auto px-6" onClick={onAddApplication}>
+                Add application
+              </Button>
+            </div>
+          ) : null}
+        </Card>
+      );
+    }
     return (
-      <Card className="p-10 text-center">
+      <Card className="p-10 text-center hb-fade-in">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">No results found</p>
         <p className="mt-1 text-sm hb-muted">Try adjusting filters or search.</p>
       </Card>
@@ -388,6 +406,7 @@ export default function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [modalApplication, setModalApplication] = useState(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const columns = useMemo(() => groupByStatus(applications), [applications]);
 
@@ -431,6 +450,21 @@ export default function DashboardPage() {
 
   const totalApplications = applications.length;
 
+  const hasActiveFilters = useMemo(() => {
+    if (debouncedSearch.trim()) return true;
+    if (filterWorkType || filterPriority || appliedFrom || appliedTo) return true;
+    if (viewMode === 'list' && filterStatus) return true;
+    return false;
+  }, [
+    debouncedSearch,
+    filterWorkType,
+    filterPriority,
+    appliedFrom,
+    appliedTo,
+    viewMode,
+    filterStatus,
+  ]);
+
   const clearFilters = useCallback(() => {
     setFilterStatus('');
     setFilterWorkType('');
@@ -439,6 +473,58 @@ export default function DashboardPage() {
     setAppliedTo('');
     setSearch('');
   }, []);
+
+  const handleExportCsv = useCallback(async () => {
+    setExportingCsv(true);
+    setError('');
+    try {
+      const params = {
+        sortBy: 'appliedDate',
+        sortOrder: 'desc',
+      };
+      if (filterStatus) params.status = filterStatus;
+      if (filterWorkType) params.workType = filterWorkType;
+      if (filterPriority) params.priority = filterPriority;
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (appliedFrom) params.appliedFrom = appliedFrom;
+      if (appliedTo) params.appliedTo = appliedTo;
+
+      const res = await api.get('/applications/export/csv', { params, responseType: 'blob' });
+      const ctype = (res.headers['content-type'] || '').toLowerCase();
+      if (ctype.includes('application/json') || ctype.includes('json')) {
+        const text = await res.data.text();
+        const body = JSON.parse(text || '{}');
+        throw new Error(body.message || 'Export failed');
+      }
+
+      const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'text/csv' });
+      const cd = res.headers['content-disposition'] || '';
+      let filename = 'hireboard-applications.csv';
+      const match = /filename="?([^";]+)"?/i.exec(cd);
+      if (match) filename = match[1];
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (exportErr) {
+      setError(exportErr?.message || getApiErrorMessage(exportErr));
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [
+    debouncedSearch,
+    filterStatus,
+    filterWorkType,
+    filterPriority,
+    appliedFrom,
+    appliedTo,
+  ]);
 
   const closeApplicationModal = useCallback(() => {
     setModalOpen(false);
@@ -512,6 +598,9 @@ export default function DashboardPage() {
 
     try {
       await api.patch(`/applications/${draggableId}`, { status: destination.droppableId });
+      if (destination.droppableId === 'Offer' && source.droppableId !== 'Offer') {
+        celebrateOffer();
+      }
     } catch (updateError) {
       setApplications(previousApplications);
       setError(getApiErrorMessage(updateError));
@@ -543,32 +632,46 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide hb-muted">View</span>
-        <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-white p-1">
-          <button
-            type="button"
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              viewMode === 'kanban'
-                ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-            onClick={() => setViewMode('kanban')}
-          >
-            Kanban
-          </button>
-          <button
-            type="button"
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              viewMode === 'list'
-                ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-            onClick={() => setViewMode('list')}
-          >
-            List
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide hb-muted">View</span>
+          <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-white p-1">
+            <button
+              type="button"
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                viewMode === 'kanban'
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+              onClick={() => setViewMode('kanban')}
+            >
+              Kanban
+            </button>
+            <button
+              type="button"
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                viewMode === 'list'
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+              onClick={() => setViewMode('list')}
+            >
+              List
+            </button>
+          </div>
         </div>
+        {viewMode === 'list' ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-auto px-4"
+            loading={exportingCsv}
+            disabled={exportingCsv || isLoading}
+            onClick={() => void handleExportCsv()}
+          >
+            Export CSV
+          </Button>
+        ) : null}
       </div>
 
       {error ? (
@@ -611,10 +714,23 @@ export default function DashboardPage() {
             <Card className="p-6">
               <p className="text-sm hb-muted">Loading applications...</p>
             </Card>
+          ) : viewMode === 'kanban' && totalApplications === 0 && !hasActiveFilters ? (
+            <Card className="p-14 text-center hb-fade-in">
+              <p className="text-lg font-semibold text-[var(--color-text-primary)]">No applications yet</p>
+              <p className="mx-auto mt-2 max-w-md text-sm hb-muted">
+                Start with one application—then drag cards across stages as you progress. When you land on
+                Offer, we&apos;ll celebrate with you.
+              </p>
+              <div className="mt-8 flex justify-center">
+                <Button type="button" className="w-auto px-6" onClick={openCreateApplication}>
+                  Add application
+                </Button>
+              </div>
+            </Card>
           ) : viewMode === 'kanban' ? (
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="overflow-x-auto pb-2">
-                <div className="flex min-w-max items-start gap-4">
+              <div className="-mx-1 overflow-x-auto overflow-y-visible pb-2 [-webkit-overflow-scrolling:touch] [touch-action:pan-x] sm:mx-0">
+                <div className="flex min-w-max items-start gap-4 px-1 sm:px-0">
                   {STATUSES.map((status) => (
                     <StatusColumn
                       key={status}
@@ -632,6 +748,8 @@ export default function DashboardPage() {
               applications={applications}
               onEditRow={openEditApplication}
               onDeleteRow={handleDeleteApplication}
+              hasActiveFilters={hasActiveFilters}
+              onAddApplication={openCreateApplication}
             />
           )}
         </div>

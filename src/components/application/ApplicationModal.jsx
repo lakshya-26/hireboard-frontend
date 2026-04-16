@@ -3,6 +3,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import { api, getApiErrorMessage } from '../../lib/api';
+import { celebrateOffer } from '../../lib/offerConfetti';
 
 const STATUSES = [
   'Saved',
@@ -175,11 +176,16 @@ export default function ApplicationModal({
         const res = await api.post('/applications', payload);
         const created = res.data?.data;
         if (created) onCreated?.(created);
+        if (created?.status === 'Offer') celebrateOffer();
         onClose();
       } else if (application?.id) {
+        const previousStatus = application.status;
         const res = await api.patch(`/applications/${application.id}`, payload);
         const updated = res.data?.data;
         if (updated) onUpdated?.(updated);
+        if (updated?.status === 'Offer' && previousStatus !== 'Offer') {
+          celebrateOffer();
+        }
         onClose();
       }
     } catch (err) {
