@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import ApplicationModal from '../components/application/ApplicationModal';
+import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -520,7 +521,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      <DashboardAnalytics />
+
+      <div className="space-y-6 border-t border-[var(--color-border)] pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Your Applications</h2>
@@ -651,6 +655,7 @@ export default function DashboardPage() {
           closeApplicationModal();
         }}
       />
+      </div>
     </div>
   );
 }
