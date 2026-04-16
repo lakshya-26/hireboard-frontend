@@ -1,23 +1,41 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, getApiErrorMessage } from '../lib/api';
+import { ACCESS_TOKEN_STORAGE_KEY, api, getApiErrorMessage } from '../lib/api';
 
-const TOKEN_KEY = 'hireboard_access_token';
 const USER_KEY = 'hireboard_user';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [accessToken, setAccessToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [accessToken, setAccessToken] = useState(() =>
+    localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY),
+  );
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   });
 
   useEffect(() => {
+    function onAccessTokenRefreshed(event) {
+      const token = event.detail?.accessToken;
+      if (token) setAccessToken(token);
+    }
+    function onSessionEnd() {
+      setAccessToken(null);
+      setUser(null);
+    }
+    window.addEventListener('hireboard:access-token', onAccessTokenRefreshed);
+    window.addEventListener('hireboard:session-end', onSessionEnd);
+    return () => {
+      window.removeEventListener('hireboard:access-token', onAccessTokenRefreshed);
+      window.removeEventListener('hireboard:session-end', onSessionEnd);
+    };
+  }, []);
+
+  useEffect(() => {
     if (accessToken) {
-      localStorage.setItem(TOKEN_KEY, accessToken);
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
     } else {
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
     }
   }, [accessToken]);
 
