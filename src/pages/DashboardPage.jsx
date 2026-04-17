@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import ApplicationModal from '../components/application/ApplicationModal';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
-import BrandLogo from '../components/ui/BrandLogo';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -11,6 +10,7 @@ import Input from '../components/ui/Input';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { api, getApiErrorMessage } from '../lib/api';
 import { celebrateOffer } from '../lib/offerConfetti';
+import { useAuth } from '../hooks/useAuth';
 
 const STATUSES = [
   'Saved',
@@ -52,6 +52,32 @@ function formatAppliedDate(date) {
   return asDate.toLocaleDateString();
 }
 
+function formatAppliedOn(date) {
+  if (!date) return '—';
+  const asDate = new Date(date);
+  if (Number.isNaN(asDate.getTime())) return '—';
+  return asDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function greetingForNow() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function userInitials(name, email) {
+  const n = (name || '').trim();
+  if (n) {
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase().slice(0, 2);
+    return n.slice(0, 2).toUpperCase();
+  }
+  const e = (email || '').trim();
+  if (e) return e.slice(0, 2).toUpperCase();
+  return 'U';
+}
+
 function reorderWithinColumn(items, sourceIndex, destinationIndex) {
   const updated = [...items];
   const [moved] = updated.splice(sourceIndex, 1);
@@ -81,15 +107,15 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`hb-card hb-card--interactive mb-0 rounded-[var(--radius-lg)] p-3.5 transition-shadow ${
+          className={`mb-0 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-sm transition-all ${
             snapshot.isDragging
               ? 'cursor-grabbing shadow-lg ring-2 ring-indigo-200'
-              : 'cursor-grab'
+              : 'cursor-grab hover:border-indigo-200/60 hover:shadow-md'
           }`}
         >
           <div className="flex gap-2">
             <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              <h4 className="text-[15px] font-bold leading-snug text-slate-900">
                 <Link
                   to={`/applications/${application.id}`}
                   draggable={false}
@@ -98,9 +124,9 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
                   {application.companyName}
                 </Link>
               </h4>
-              <p className="mt-1 text-sm hb-muted">{application.role}</p>
-              <p className="mt-3 text-xs leading-snug hb-muted">
-                Applied: {formatAppliedDate(application.appliedDate)}
+              <p className="mt-1 text-sm text-slate-600">{application.role}</p>
+              <p className="mt-3 text-xs leading-snug text-slate-500">
+                Applied on {formatAppliedOn(application.appliedDate)}
               </p>
             </div>
             <div
@@ -133,12 +159,12 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
   );
 }
 
-function StatusColumn({ status, applications, onEditApplication, onDeleteApplication }) {
+function StatusColumn({ status, applications, onEditApplication, onDeleteApplication, onAddToColumn }) {
   return (
-    <Card className="hb-panel flex h-full min-h-0 w-[272px] shrink-0 flex-col p-3 shadow-sm">
+    <Card className="flex h-full min-h-0 w-[272px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 shadow-sm">
       <div className="mb-3 flex shrink-0 items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{status}</h3>
-        <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+        <h3 className="text-sm font-bold text-slate-800">{status}</h3>
+        <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-white px-2 py-0.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-100">
           {applications.length}
         </span>
       </div>
@@ -148,12 +174,12 @@ function StatusColumn({ status, applications, onEditApplication, onDeleteApplica
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-lg p-1.5 transition-colors ${
-              snapshot.isDraggingOver ? 'bg-indigo-50/60' : 'bg-transparent'
+            className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-xl bg-white/40 p-1.5 transition-colors ${
+              snapshot.isDraggingOver ? 'bg-indigo-50/80 ring-1 ring-indigo-100' : ''
             }`}
           >
             {applications.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-7 text-center text-sm hb-muted">
+              <div className="rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
                 No applications
               </div>
             ) : null}
@@ -171,6 +197,13 @@ function StatusColumn({ status, applications, onEditApplication, onDeleteApplica
           </div>
         )}
       </Droppable>
+      <button
+        type="button"
+        className="mt-2 w-full rounded-lg py-2 text-left text-sm font-semibold text-indigo-600 transition hover:bg-white/90 hover:text-indigo-700"
+        onClick={() => onAddToColumn?.()}
+      >
+        + Add application
+      </button>
     </Card>
   );
 }
@@ -400,6 +433,11 @@ function FilterSidebar({
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const exportRunRef = useRef(false);
+
   const [viewMode, setViewMode] = useState('kanban');
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -418,10 +456,39 @@ export default function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [modalApplication, setModalApplication] = useState(null);
+  const [createDefaultStatus, setCreateDefaultStatus] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const columns = useMemo(() => groupByStatus(applications), [applications]);
+
+  useEffect(() => {
+    if (searchParams.get('export') === '1' && searchParams.get('view') !== 'list') {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('view', 'list');
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+    const view = searchParams.get('view');
+    if (view === 'list') setViewMode('list');
+    else if (view === 'kanban') setViewMode('kanban');
+    else setViewMode('kanban');
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const { hash } = location;
+    if (hash !== '#analytics' && hash !== '#reminders') return undefined;
+    const id = hash === '#analytics' ? 'dashboard-analytics' : 'dashboard-reminders';
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => window.clearTimeout(t);
+  }, [location.hash, location.pathname]);
 
   useEffect(() => {
     if (!mobileFiltersOpen) return undefined;
@@ -552,14 +619,44 @@ export default function DashboardPage() {
     appliedTo,
   ]);
 
+  useEffect(() => {
+    if (searchParams.get('export') !== '1') {
+      exportRunRef.current = false;
+      return undefined;
+    }
+    if (viewMode !== 'list' || isLoading) return undefined;
+    if (exportRunRef.current) return undefined;
+    exportRunRef.current = true;
+    void (async () => {
+      try {
+        await handleExportCsv();
+      } finally {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('export');
+            return next;
+          },
+          { replace: true },
+        );
+        exportRunRef.current = false;
+      }
+    })();
+    return undefined;
+  }, [searchParams, viewMode, isLoading, handleExportCsv, setSearchParams]);
+
   const closeApplicationModal = useCallback(() => {
     setModalOpen(false);
     setModalApplication(null);
+    setCreateDefaultStatus(null);
   }, []);
 
-  const openCreateApplication = useCallback(() => {
+  const openCreateApplication = useCallback((defaultStatus = null) => {
     setModalApplication(null);
     setModalMode('create');
+    setCreateDefaultStatus(
+      defaultStatus && STATUSES.includes(defaultStatus) ? defaultStatus : null,
+    );
     setModalOpen(true);
   }, []);
 
@@ -650,87 +747,120 @@ export default function DashboardPage() {
     onClear: clearFilters,
   };
 
+  const userFirstName = (user?.name || '').trim().split(/\s+/)[0] || 'there';
+
+  const setViewInUrl = useCallback(
+    (mode) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (mode === 'list') next.set('view', 'list');
+          else next.set('view', 'kanban');
+          next.delete('export');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
-      <div className="shrink-0 space-y-6">
-        <DashboardAnalytics />
-
-        <div className="space-y-5 border-t border-[var(--color-border-soft)] pt-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <BrandLogo className="h-10 w-10 shrink-0 rounded-[10px] object-contain shadow-md" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">HireBoard</p>
-                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Your Applications</h2>
-                <p className="mt-2 text-sm leading-relaxed hb-muted">
-                  Kanban for fast moves, list for scanning. Status filtering is available in List view;
-                  Kanban uses columns instead.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" className="h-11 w-auto px-5" onClick={openCreateApplication}>
-                Add Application
-              </Button>
-              <div className="inline-flex h-9 items-center rounded-full bg-indigo-50 px-3 text-xs font-semibold text-indigo-700">
-                {totalApplications} shown
-              </div>
-            </div>
+      <header className="shrink-0 space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.65rem]">
+              {greetingForNow()}, {userFirstName}{' '}
+              <span className="font-normal" aria-hidden>
+                👋
+              </span>
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 sm:text-[15px]">Here&apos;s your application overview.</p>
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide hb-muted">View</span>
-              <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-white p-1 shadow-sm">
-                <button
-                  type="button"
-                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                    viewMode === 'kanban'
-                      ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                      : 'text-[var(--color-text-secondary)] hover:bg-gray-50 hover:text-[var(--color-text-primary)]'
-                  }`}
-                  onClick={() => setViewMode('kanban')}
-                >
-                  Kanban
-                </button>
-                <button
-                  type="button"
-                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                    viewMode === 'list'
-                      ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                      : 'text-[var(--color-text-secondary)] hover:bg-gray-50 hover:text-[var(--color-text-primary)]'
-                  }`}
-                  onClick={() => setViewMode('list')}
-                >
-                  List
-                </button>
-              </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-indigo-200 hover:bg-slate-50 hover:text-slate-900"
+              aria-label="Notifications (coming soon)"
+              title="Reminders coming soon"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+            </button>
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow-md shadow-indigo-500/25"
+              title={user?.email || 'Account'}
+            >
+              {userInitials(user?.name, user?.email)}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" className="h-11 w-auto px-5 shadow-md shadow-indigo-600/20" onClick={() => openCreateApplication()}>
+              + Add application
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">View</span>
+            <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50/80 p-1">
+              <button
+                type="button"
+                className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'kanban'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                }`}
+                onClick={() => setViewInUrl('kanban')}
+              >
+                Board
+              </button>
+              <button
+                type="button"
+                className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'list'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                }`}
+                onClick={() => setViewInUrl('list')}
+              >
+                List
+              </button>
+            </div>
+            <span className="hidden text-sm text-slate-500 sm:inline">Drag cards on the board to update stage.</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-100">
+              {totalApplications} {totalApplications === 1 ? 'application' : 'applications'}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 w-auto px-4 lg:hidden"
+              onClick={() => setMobileFiltersOpen(true)}
+            >
+              Filters
+            </Button>
+            {viewMode === 'list' ? (
               <Button
                 type="button"
                 variant="secondary"
-                className="h-11 w-auto px-4 lg:hidden"
-                onClick={() => setMobileFiltersOpen(true)}
+                className="h-10 w-auto px-4"
+                loading={exportingCsv}
+                disabled={exportingCsv || isLoading}
+                onClick={() => void handleExportCsv()}
               >
-                Filters
+                Export CSV
               </Button>
-              {viewMode === 'list' ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-11 w-auto px-4"
-                  loading={exportingCsv}
-                  disabled={exportingCsv || isLoading}
-                  onClick={() => void handleExportCsv()}
-                >
-                  Export CSV
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         </div>
-      </div>
+      </header>
 
       <section className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-0">
         <aside className="hb-filter-rail hidden min-h-0 flex-col lg:flex">
@@ -820,6 +950,7 @@ export default function DashboardPage() {
                           applications={columns[status] ?? []}
                           onEditApplication={openEditApplication}
                           onDeleteApplication={handleDeleteApplication}
+                          onAddToColumn={() => openCreateApplication(status)}
                         />
                       ))}
                     </div>
@@ -841,10 +972,35 @@ export default function DashboardPage() {
         </main>
       </section>
 
+      <section
+        id="dashboard-reminders"
+        className="scroll-mt-24 shrink-0 rounded-2xl border border-slate-200/90 bg-white/90 p-5 shadow-sm sm:p-6"
+        aria-labelledby="reminders-heading"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="reminders-heading" className="text-base font-bold text-slate-900">
+              Reminders
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Follow-ups and next steps live on each application — open a card to add notes and keep momentum.
+            </p>
+          </div>
+          <Button type="button" variant="secondary" className="h-10 w-full shrink-0 sm:w-auto sm:px-5" onClick={() => openCreateApplication()}>
+            Log a new application
+          </Button>
+        </div>
+      </section>
+
+      <div id="dashboard-analytics" className="scroll-mt-24 shrink-0">
+        <DashboardAnalytics />
+      </div>
+
       <ApplicationModal
         open={modalOpen}
         mode={modalMode}
         application={modalApplication}
+        defaultStatus={createDefaultStatus}
         onClose={closeApplicationModal}
         onCreated={(created) => {
           setApplications((prev) => [created, ...prev]);

@@ -11,7 +11,7 @@ export default function Navbar({ onLogout }) {
       <div className="hb-container hb-navbar-inner">
         <div className="flex items-center gap-4 min-w-0">
           <Link to="/" className="hb-brand min-w-0" aria-label="HireBoard home">
-            <BrandLogo className="hb-brand-mark" alt="" />
+            <BrandLogo className="h-8 w-auto max-w-[96px] shrink-0 sm:h-9 sm:max-w-[104px]" alt="" />
             <span className="hb-brand-meta min-w-0">
               <span className="truncate">HireBoard</span>
               <span className="hb-brand-tagline hidden sm:block">Pipeline workspace</span>

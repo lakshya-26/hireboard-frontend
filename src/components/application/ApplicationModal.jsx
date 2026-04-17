@@ -106,6 +106,7 @@ export default function ApplicationModal({
   open,
   mode,
   application,
+  defaultStatus,
   onClose,
   onCreated,
   onUpdated,
@@ -121,12 +122,16 @@ export default function ApplicationModal({
 
   useEffect(() => {
     if (!open) return;
-    setForm(applicationToForm(application));
+    let next = applicationToForm(application);
+    if (mode === 'create' && defaultStatus && STATUSES.includes(defaultStatus)) {
+      next = { ...next, status: defaultStatus };
+    }
+    setForm(next);
     setFieldErrors({});
     setFormError('');
     setNoteText('');
     setShowDeleteConfirm(false);
-  }, [open, mode, application?.id]);
+  }, [open, mode, application?.id, defaultStatus]);
 
   useEffect(() => {
     if (!open) return undefined;
