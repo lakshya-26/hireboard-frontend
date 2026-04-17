@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import BrandLogo from '../ui/BrandLogo';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function Navbar({ onLogout }) {
@@ -9,8 +10,8 @@ export default function Navbar({ onLogout }) {
     <header className="hb-navbar">
       <div className="hb-container hb-navbar-inner">
         <div className="flex items-center gap-4 min-w-0">
-          <Link to="/" className="hb-brand min-w-0">
-            <span className="hb-brand-mark shrink-0">HB</span>
+          <Link to="/" className="hb-brand min-w-0" aria-label="HireBoard home">
+            <BrandLogo className="hb-brand-mark" alt="" />
             <span className="hb-brand-meta min-w-0">
               <span className="truncate">HireBoard</span>
               <span className="hb-brand-tagline hidden sm:block">Pipeline workspace</span>

@@ -63,9 +63,11 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/register', payload);
       const data = response.data?.data ?? {};
-      setAccessToken(data.accessToken ?? null);
-      setUser(data.user ?? null);
-      return { ok: true };
+      if (data.accessToken) {
+        setAccessToken(data.accessToken);
+        setUser(data.user ?? null);
+      }
+      return { ok: true, message: response.data?.message };
     } catch (error) {
       return { ok: false, message: getApiErrorMessage(error) };
     }
