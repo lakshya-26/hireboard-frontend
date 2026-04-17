@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import ApplicationModal from '../components/application/ApplicationModal';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
+import BrandLogo from '../components/ui/BrandLogo';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -134,8 +135,8 @@ function ApplicationItem({ application, index, onEdit, onDelete }) {
 
 function StatusColumn({ status, applications, onEditApplication, onDeleteApplication }) {
   return (
-    <Card className="hb-panel flex h-full min-h-[540px] w-[300px] flex-shrink-0 flex-col p-3.5">
-      <div className="mb-3 flex items-center justify-between">
+    <Card className="hb-panel flex h-full min-h-0 w-[272px] shrink-0 flex-col p-3 shadow-sm">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{status}</h3>
         <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
           {applications.length}
@@ -147,7 +148,7 @@ function StatusColumn({ status, applications, onEditApplication, onDeleteApplica
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex min-h-[420px] flex-1 flex-col gap-2.5 rounded-lg p-1.5 transition-colors ${
+            className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-lg p-1.5 transition-colors ${
               snapshot.isDraggingOver ? 'bg-indigo-50/60' : 'bg-transparent'
             }`}
           >
@@ -202,53 +203,64 @@ function ApplicationsListTable({ applications, onEditRow, onDeleteRow, hasActive
   }
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50/80">
+    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+      <div className="hb-table-wrap min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <table className="w-full table-fixed border-collapse text-left text-sm">
+          <thead className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-gray-50/95 backdrop-blur-sm">
             <tr>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Company</th>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Role</th>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Status</th>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Applied</th>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Priority</th>
-              <th className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">Actions</th>
+              <th className="w-[22%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">
+                Company
+              </th>
+              <th className="w-[20%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">Role</th>
+              <th className="w-[14%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">Status</th>
+              <th className="hidden w-[14%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:table-cell sm:px-4">
+                Applied
+              </th>
+              <th className="w-[12%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">Priority</th>
+              <th className="w-[18%] px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">Actions</th>
             </tr>
           </thead>
           <tbody>
             {applications.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-[var(--color-border)] last:border-b-0 hover:bg-gray-50/60"
+                className="border-b border-[var(--color-border)] last:border-b-0 transition-colors hover:bg-gray-50/70"
               >
-                <td className="px-4 py-3 font-semibold text-[var(--color-text-primary)]">
+                <td className="px-3 py-3 font-semibold text-[var(--color-text-primary)] sm:px-4">
                   <Link
                     to={`/applications/${row.id}`}
-                    className="text-[var(--color-text-primary)] hover:text-[var(--color-primary)]"
+                    className="block truncate text-[var(--color-text-primary)] hover:text-[var(--color-primary)]"
+                    title={row.companyName}
                   >
                     {row.companyName}
                   </Link>
                 </td>
-                <td className="px-4 py-3 hb-muted">{row.role}</td>
-                <td className="px-4 py-3">
-                  <Badge>{row.status}</Badge>
+                <td className="px-3 py-3 hb-muted sm:px-4">
+                  <span className="line-clamp-2 break-words" title={row.role}>
+                    {row.role}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-sm hb-muted">{formatAppliedDate(row.appliedDate)}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 sm:px-4">
+                  <Badge className="max-w-full truncate">{row.status}</Badge>
+                </td>
+                <td className="hidden w-[14%] px-3 py-3 text-sm hb-muted sm:table-cell sm:px-4">
+                  {formatAppliedDate(row.appliedDate)}
+                </td>
+                <td className="px-3 py-3 sm:px-4">
                   <Badge>{row.priority || 'Medium'}</Badge>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
+                <td className="px-3 py-3 sm:px-4">
+                  <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-[var(--color-primary)] hover:bg-indigo-50"
+                      className="cursor-pointer rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-indigo-50"
                       onClick={() => onEditRow?.(row)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-[var(--color-danger)] hover:bg-red-50"
+                      className="cursor-pointer rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-colors hover:bg-red-50"
                       onClick={() => onDeleteRow?.(row)}
                     >
                       Delete
@@ -281,9 +293,9 @@ function FilterSidebar({
   const showStatusFilter = viewMode === 'list';
 
   return (
-    <Card className="h-fit p-4 lg:sticky lg:top-24">
+    <Card className="border-0 bg-transparent p-0 shadow-none lg:rounded-xl lg:border lg:border-[var(--color-border)] lg:bg-[var(--color-surface)] lg:p-4 lg:shadow-sm">
       <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Filters</h3>
-      <p className="mt-1 text-xs hb-muted">
+      <p className="mt-2 text-xs hb-muted">
         {showStatusFilter
           ? 'Refine the table below. Other filters also apply in Kanban (not status).'
           : 'Refine cards by type, priority, or dates. Status is shown as columns here.'}
@@ -407,8 +419,22 @@ export default function DashboardPage() {
   const [modalMode, setModalMode] = useState('create');
   const [modalApplication, setModalApplication] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const columns = useMemo(() => groupByStatus(applications), [applications]);
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return undefined;
+    document.body.classList.add('hb-scroll-lock');
+    function onKey(e) {
+      if (e.key === 'Escape') setMobileFiltersOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('hb-scroll-lock');
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [mobileFiltersOpen]);
 
   const fetchApplications = useCallback(async () => {
     setError('');
@@ -609,151 +635,211 @@ export default function DashboardPage() {
     }
   }
 
+  const filterSidebarProps = {
+    viewMode,
+    filterStatus,
+    setFilterStatus,
+    filterWorkType,
+    setFilterWorkType,
+    filterPriority,
+    setFilterPriority,
+    appliedFrom,
+    setAppliedFrom,
+    appliedTo,
+    setAppliedTo,
+    onClear: clearFilters,
+  };
+
   return (
-    <div className="space-y-8">
-      <DashboardAnalytics />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6">
+      <div className="shrink-0 space-y-6">
+        <DashboardAnalytics />
 
-      <div className="space-y-6 border-t border-[var(--color-border)] pt-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Your Applications</h2>
-          <p className="mt-1 text-sm hb-muted">
-            Kanban for fast moves, list for scanning. Status filtering is available in List view;
-            Kanban uses columns instead.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" className="w-auto px-5" onClick={openCreateApplication}>
-            Add Application
-          </Button>
-          <div className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-            {totalApplications} shown
+        <div className="space-y-5 border-t border-[var(--color-border-soft)] pt-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <BrandLogo className="h-10 w-10 shrink-0 rounded-[10px] object-contain shadow-md" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">HireBoard</p>
+                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Your Applications</h2>
+                <p className="mt-2 text-sm leading-relaxed hb-muted">
+                  Kanban for fast moves, list for scanning. Status filtering is available in List view;
+                  Kanban uses columns instead.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" className="h-11 w-auto px-5" onClick={openCreateApplication}>
+                Add Application
+              </Button>
+              <div className="inline-flex h-9 items-center rounded-full bg-indigo-50 px-3 text-xs font-semibold text-indigo-700">
+                {totalApplications} shown
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide hb-muted">View</span>
-          <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-white p-1">
-            <button
-              type="button"
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                viewMode === 'kanban'
-                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-              onClick={() => setViewMode('kanban')}
-            >
-              Kanban
-            </button>
-            <button
-              type="button"
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                viewMode === 'list'
-                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-              onClick={() => setViewMode('list')}
-            >
-              List
-            </button>
-          </div>
-        </div>
-        {viewMode === 'list' ? (
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-auto px-4"
-            loading={exportingCsv}
-            disabled={exportingCsv || isLoading}
-            onClick={() => void handleExportCsv()}
-          >
-            Export CSV
-          </Button>
-        ) : null}
-      </div>
-
-      {error ? (
-        <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-[var(--color-danger)]">
-          {error}
-        </p>
-      ) : null}
-
-      {isUpdating ? (
-        <p className="text-xs font-semibold hb-muted">Updating status...</p>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
-        <FilterSidebar
-          viewMode={viewMode}
-          filterStatus={filterStatus}
-          setFilterStatus={setFilterStatus}
-          filterWorkType={filterWorkType}
-          setFilterWorkType={setFilterWorkType}
-          filterPriority={filterPriority}
-          setFilterPriority={setFilterPriority}
-          appliedFrom={appliedFrom}
-          setAppliedFrom={setAppliedFrom}
-          appliedTo={appliedTo}
-          setAppliedTo={setAppliedTo}
-          onClear={clearFilters}
-        />
-
-        <div className="space-y-4">
-          <Input
-            id="search-applications"
-            label="Search"
-            placeholder="Search company or role..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoComplete="off"
-          />
-
-          {isLoading ? (
-            <Card className="p-6">
-              <p className="text-sm hb-muted">Loading applications...</p>
-            </Card>
-          ) : viewMode === 'kanban' && totalApplications === 0 && !hasActiveFilters ? (
-            <Card className="p-14 text-center hb-fade-in">
-              <p className="text-lg font-semibold text-[var(--color-text-primary)]">No applications yet</p>
-              <p className="mx-auto mt-2 max-w-md text-sm hb-muted">
-                Start with one application—then drag cards across stages as you progress. When you land on
-                Offer, we&apos;ll celebrate with you.
-              </p>
-              <div className="mt-8 flex justify-center">
-                <Button type="button" className="w-auto px-6" onClick={openCreateApplication}>
-                  Add application
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide hb-muted">View</span>
+              <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-white p-1 shadow-sm">
+                <button
+                  type="button"
+                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                    viewMode === 'kanban'
+                      ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                      : 'text-[var(--color-text-secondary)] hover:bg-gray-50 hover:text-[var(--color-text-primary)]'
+                  }`}
+                  onClick={() => setViewMode('kanban')}
+                >
+                  Kanban
+                </button>
+                <button
+                  type="button"
+                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                    viewMode === 'list'
+                      ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                      : 'text-[var(--color-text-secondary)] hover:bg-gray-50 hover:text-[var(--color-text-primary)]'
+                  }`}
+                  onClick={() => setViewMode('list')}
+                >
+                  List
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-auto px-4 lg:hidden"
+                onClick={() => setMobileFiltersOpen(true)}
+              >
+                Filters
+              </Button>
+              {viewMode === 'list' ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 w-auto px-4"
+                  loading={exportingCsv}
+                  disabled={exportingCsv || isLoading}
+                  onClick={() => void handleExportCsv()}
+                >
+                  Export CSV
                 </Button>
-              </div>
-            </Card>
-          ) : viewMode === 'kanban' ? (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="-mx-1 overflow-x-auto overflow-y-visible pb-2 [-webkit-overflow-scrolling:touch] [touch-action:pan-x] sm:mx-0">
-                <div className="flex min-w-max items-start gap-4 px-1 sm:px-0">
-                  {STATUSES.map((status) => (
-                    <StatusColumn
-                      key={status}
-                      status={status}
-                      applications={columns[status] ?? []}
-                      onEditApplication={openEditApplication}
-                      onDeleteApplication={handleDeleteApplication}
-                    />
-                  ))}
-                </div>
-              </div>
-            </DragDropContext>
-          ) : (
-            <ApplicationsListTable
-              applications={applications}
-              onEditRow={openEditApplication}
-              onDeleteRow={handleDeleteApplication}
-              hasActiveFilters={hasActiveFilters}
-              onAddApplication={openCreateApplication}
-            />
-          )}
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
+
+      <section className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-0">
+        <aside className="hb-filter-rail hidden min-h-0 flex-col lg:flex">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain pr-3">
+            <FilterSidebar {...filterSidebarProps} />
+          </div>
+        </aside>
+
+        {mobileFiltersOpen ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 cursor-default bg-slate-900/45 backdrop-blur-[1px] lg:hidden"
+              aria-label="Close filters"
+              onClick={() => setMobileFiltersOpen(false)}
+            />
+            <div
+              className="fixed inset-y-0 left-0 z-50 flex w-[min(100%,var(--hb-filter-width))] max-w-full flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl lg:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Filters"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">Filters</span>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--color-primary)] hover:bg-indigo-50"
+                  onClick={() => setMobileFiltersOpen(false)}
+                >
+                  Done
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4">
+                <FilterSidebar {...filterSidebarProps} />
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <main className="hb-dashboard-main flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-4">
+          <div className="shrink-0 space-y-3 border-b border-[var(--color-border-soft)] px-4 py-4 sm:px-6">
+            <Input
+              id="search-applications"
+              label="Search"
+              placeholder="Search company or role..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+            />
+            {error ? (
+              <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-[var(--color-danger)]">
+                {error}
+              </p>
+            ) : null}
+            {isUpdating ? (
+              <p className="text-xs font-semibold hb-muted">Updating status...</p>
+            ) : null}
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
+            {isLoading ? (
+              <Card className="p-6">
+                <p className="text-sm hb-muted">Loading applications...</p>
+              </Card>
+            ) : viewMode === 'kanban' && totalApplications === 0 && !hasActiveFilters ? (
+              <Card className="p-14 text-center hb-fade-in">
+                <p className="text-lg font-semibold text-[var(--color-text-primary)]">No applications yet</p>
+                <p className="mx-auto mt-2 max-w-md text-sm hb-muted">
+                  Start with one application—then drag cards across stages as you progress. When you land on
+                  Offer, we&apos;ll celebrate with you.
+                </p>
+                <div className="mt-8 flex justify-center">
+                  <Button type="button" className="h-11 w-auto px-6" onClick={openCreateApplication}>
+                    Add application
+                  </Button>
+                </div>
+              </Card>
+            ) : viewMode === 'kanban' ? (
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <div className="hb-kanban-scroll min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+                    <div className="flex h-full min-h-[min(520px,calc(100dvh-22rem))] items-stretch gap-4 pr-1">
+                      {STATUSES.map((status) => (
+                        <StatusColumn
+                          key={status}
+                          status={status}
+                          applications={columns[status] ?? []}
+                          onEditApplication={openEditApplication}
+                          onDeleteApplication={handleDeleteApplication}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </DragDropContext>
+              </div>
+            ) : (
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <ApplicationsListTable
+                  applications={applications}
+                  onEditRow={openEditApplication}
+                  onDeleteRow={handleDeleteApplication}
+                  hasActiveFilters={hasActiveFilters}
+                  onAddApplication={openCreateApplication}
+                />
+              </div>
+            )}
+          </div>
+        </main>
+      </section>
 
       <ApplicationModal
         open={modalOpen}
@@ -773,7 +859,6 @@ export default function DashboardPage() {
           closeApplicationModal();
         }}
       />
-      </div>
     </div>
   );
 }

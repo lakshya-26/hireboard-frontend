@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import BrandLogo from '../components/ui/BrandLogo';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -34,12 +35,19 @@ export default function RegisterPage() {
       return;
     }
 
-    navigate('/dashboard', { replace: true });
+    navigate('/verify-email', {
+      replace: true,
+      state: { email: form.email.trim().toLowerCase() },
+    });
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-5">
       <Card className="w-full max-w-md p-8">
+        <div className="mb-5 flex items-center justify-center gap-2.5">
+          <BrandLogo className="h-11 w-11 rounded-xl object-contain shadow-lg" />
+          <span className="text-xl font-bold tracking-tight text-[var(--color-text-primary)]">HireBoard</span>
+        </div>
         <h1 className="hb-card-title">Create account</h1>
         <p className="hb-card-subtitle">Start organizing your job search professionally.</p>
 

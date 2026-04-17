@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import Button from '../ui/Button';
-import Card from '../ui/Card';
 import Input from '../ui/Input';
 import { api, getApiErrorMessage } from '../../lib/api';
 import { celebrateOffer } from '../../lib/offerConfetti';
@@ -129,6 +128,14 @@ export default function ApplicationModal({
     setShowDeleteConfirm(false);
   }, [open, mode, application?.id]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    document.body.classList.add('hb-scroll-lock');
+    return () => {
+      document.body.classList.remove('hb-scroll-lock');
+    };
+  }, [open]);
+
   const handleChange = useCallback((event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -239,16 +246,26 @@ export default function ApplicationModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="application-modal-title"
     >
-      <Card className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto p-6 shadow-xl">
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{title}</h2>
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-slate-900/45 backdrop-blur-[2px]"
+        aria-label="Close dialog"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 flex max-h-[min(90dvh,760px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--color-border-soft)] px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <h2 id="application-modal-title" className="text-lg font-bold text-[var(--color-text-primary)]">
+              {title}
+            </h2>
             <p className="mt-1 text-sm hb-muted">
               {mode === 'create'
                 ? 'Track a new role in your pipeline.'
@@ -257,17 +274,18 @@ export default function ApplicationModal({
           </div>
           <button
             type="button"
-            className="rounded-lg px-2 py-1 text-sm font-semibold text-[var(--color-text-secondary)] hover:bg-gray-100"
+            className="cursor-pointer rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-gray-100"
             onClick={onClose}
             aria-label="Close"
           >
             ✕
           </button>
-        </div>
+        </header>
 
-        {formError ? <p className="hb-error mb-4">{formError}</p> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 sm:px-6">
+          {formError ? <p className="hb-error mb-4">{formError}</p> : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="app-company"
             name="companyName"
@@ -497,7 +515,8 @@ export default function ApplicationModal({
             )}
           </div>
         ) : null}
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

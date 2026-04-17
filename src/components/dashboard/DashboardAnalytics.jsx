@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import BrandLogo from '../ui/BrandLogo';
 import Card from '../ui/Card';
 import { api, getApiErrorMessage } from '../../lib/api';
 
@@ -157,9 +158,14 @@ export default function DashboardAnalytics() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Overview</h2>
-        <p className="mt-1 text-sm hb-muted">Pipeline health and activity for the last eight weeks.</p>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="text-sm font-bold text-indigo-600">HireBoard</span>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Overview</h2>
+          </div>
+          <p className="mt-1 text-sm hb-muted">Pipeline health and activity for the last eight weeks.</p>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
