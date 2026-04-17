@@ -48,7 +48,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-5">
       <Card className="w-full max-w-md p-8">
         <div className="mb-5 flex items-center justify-center gap-2.5">
-          <BrandLogo className="h-11 w-11 rounded-xl object-contain shadow-lg" />
+          <BrandLogo className="h-9 w-auto max-w-[100px] sm:h-10 sm:max-w-[112px]" alt="" />
           <span className="text-xl font-bold tracking-tight text-[var(--color-text-primary)]">HireBoard</span>
         </div>
         <h1 className="hb-card-title">Welcome back</h1>

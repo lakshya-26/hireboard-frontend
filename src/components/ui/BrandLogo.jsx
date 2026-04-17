@@ -1,15 +1,14 @@
 import { BRAND_LOGO_URL } from '../../lib/brand';
 
 export default function BrandLogo({
-  className = 'h-9 w-9 shrink-0 rounded-[10px] object-contain shadow-md',
+  className =
+    'h-8 w-auto max-w-[104px] shrink-0 rounded-lg object-contain object-left shadow-sm ring-1 ring-slate-200/80',
   alt = 'HireBoard',
 }) {
   return (
     <img
       src={BRAND_LOGO_URL}
       alt={alt}
-      width={36}
-      height={36}
       decoding="async"
       className={className}
     />

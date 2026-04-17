@@ -17,6 +17,7 @@
   --shadow-lg: 0 18px 40px rgb(15 23 42 / 10%);
   --radius-lg: 14px;
   --hb-navbar-height: 64px;
+  --hb-sidebar-width: 260px;
   --hb-filter-width: 280px;
   --space-1: 4px;
   --space-2: 8px;
@@ -45,7 +46,8 @@ body,
 .hb-app-shell {
   min-height: 100dvh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
 }
 
 .hb-app-main {
